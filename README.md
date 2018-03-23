@@ -2,12 +2,12 @@
 
 RubyData workshop materials
 
-# License
+## License
 
-## Source code
+### Source code
 
 MIT
 
-## Documentation
+### Documentation
 
 CC BY-SA
