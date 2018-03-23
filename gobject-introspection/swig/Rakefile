@@ -1,0 +1,17 @@
+require "rake/clean"
+
+CLOBBER << "user_wrap.c"
+CLOBBER << Dir.glob("*.o")
+CLOBBER << Dir.glob("*.so")
+
+task :default => :build
+
+file "user_wrap.c" => ["user.h", "user.i"] do
+  sh("swig", "-ruby", "user.i")
+end
+
+desc "Build"
+task :build => ["user_wrap.c", "user.c"] do
+  ruby("extconf.rb")
+  sh("make")
+end
