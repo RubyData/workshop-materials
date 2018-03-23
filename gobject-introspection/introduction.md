@@ -284,6 +284,10 @@ p user.age  # -> 29
 
   * 使いやすいAPIを自動生成できる
 
+  * ライブラリー側が持っている関数の情報を提供するので、ライブラリーを更新するだけで、バインディング側を更新しなくても最新の機能を使える
+
+  * Rubyではデータをゼロコピーで再利用するための便利な仕組みを実装済み
+
 一方、デメリットは次の通りです。
 
   * Fiddleよりもオーバーヘッドが大きい
@@ -292,6 +296,15 @@ p user.age  # -> 29
 
   * CだけでなくGObject（Cでオブジェクト指向な機能を実現するためのライブラリー）の知識が必要
 
+この文書では以下の点がデータサイエンスの分野で重要なためGObject Introspectionを使った方法を説明します。
+
+  * 使いやすいAPIを自動生成できる
+
+  * データをゼロコピーで再利用しやすい
+
+## GObject Introspection対応ライブラリーの開発方法
+
+TODO
 
 [gobject-introspection]:https://wiki.gnome.org/Projects/GObjectIntrospection
 
