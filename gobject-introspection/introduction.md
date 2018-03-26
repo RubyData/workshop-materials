@@ -320,6 +320,8 @@ Cは言語としてオブジェクト指向なAPIをサポートしていませ�
 
 `cv::Mat`を作る方法はいくつもありますが、一番簡単な方法は空の行列を作る方法です。この方法では引数なしで`cv::Mat`を作れます。まずはこの作り方で作れるようにしましょう。
 
+### 最初の簡単な実装
+
 GObject Introspection対応ライブラリーではオブジェクト指向なAPIを設計すると説明していました。CのAPIとしてオブジェクト指向なAPIを設計する場合「モジュール名」を決めます。モジュール名は関数や定数のプレフィックスとして使います。Cにはネームスペース機能がないので、プレフィックスを決めて他のライブラリーと名前が衝突しないようにします。
 
 OpenCVのネームスペースが`cv`なのでOpenCV GLibでは最初にGLibの「G」をつけて`gcv`とします。
@@ -584,9 +586,57 @@ gcv_matrix_new(void)
 G_END_DECLS
 ```
 
+### ビルドシステムの整備
+
 実装ができたのでビルドシステムを整備します。
 
-TODO
+ビルドシステムには[Meson][meson]を使います。それほど有名なビルドシステムではないので聞いたことがないかもしれません。Mesonは2012年に開発が始まった比較的新しいビルドシステムです。
+
+なぜMesonを使うかというとGLibがMesonを使っているからです。GLibが使っているビルドシステムだとGLib関連のサポートが充実しているので使いやすいのです。
+
+実は、Mesonだけではビルドできません。Mesonは他のビルドシステムの設定ファイルを出力し、実際のビルドは他のビルドシステムを使います。GNU/Linuxなら[Ninja][ninja]を使い、WindowsならVisual Studioを使い、macOSならXcodeを使います。これはそれほど特別なアプローチではなく、[GNU Autotools][autotools]や[CMake][cmake]など有名なビルドシステムもこのアプローチです。
+
+Mesonでは各ディレクトリーに`meson.build`という設定ファイルを置きます。
+
+まず、トップレベルの`meson.build`は次のようになります。基本的にプロジェクト全体で有効にしたい情報を設定するだけです。あとで、実装がある`oepncv-glib/`ディレクトリーにも`meson.build`を作るのですが、そこで利用するためにここで設定している項目もあります。一度、`opnecv-glib/meson.build`の中身も確認してから再度見直すと理解が深まるかもしれません。
+
+詳細はコメントで説明します。
+
+```meson
+project('opencv-glib',    # プロジェクトのID
+        'c', 'cpp',       # このプロジェクトではCとC++を使う
+        version: '1.0.0', # プロジェクトのバージョン
+        # ライセンスは3条項BSDライセンス。OpenCVと合わせた。
+        license: 'BSD-3-Clause')
+
+# APIのバージョン。プロジェクトのメジャーバージョンと合わせるとよい。
+# GObject Introspectionで公開するAPIで使う。
+api_version = '1.0'
+# 共有ライブラリーのバージョン。
+# libopoencv-glib.so.1.0.0の最後の「1.0.0」の部分が共有ライブラリーのバージョン。
+so_version = '1'
+library_version = '@0@.0.0'.format(so_version)
+
+# prefix引数で指定されたインストール先。
+prefix = get_option('prefix')
+# ヘッダーファイルをインストールする場所。
+include_dir = join_paths(prefix, get_option('includedir'))
+
+# Mesonが提供するGLib関連の便利機能を使う。
+# GLibは主にGNOMEプロジェクトで活用していて、この便利機能にはGLib関連だけ
+# でなく、GNOME関連の便利機能も含まれているので'glib'ではなく'gnome'に
+# なっている。
+gnome = import('gnome')
+# Mesonが提供するpkg-config関連の便利機能を使う。
+# pkg-configはライブラリーを見つけるための便利ツール。
+pkgconfig = import('pkgconfig')
+
+# トップディレクトリーをヘッダーファイルの検索パスに設定する準備。
+# ここではまだ設定していない。opencv-glib/以下で実際に設定する。
+root_inc = include_directories('.')
+
+subdir('opencv-glib')
+```
 
 
 [gobject-introspection]:https://wiki.gnome.org/Projects/GObjectIntrospection
@@ -610,3 +660,11 @@ TODO
 [glib]:https://developer.gnome.org/glib/stable/
 
 [gtk-doc]:https://www.gtk.org/gtk-doc/
+
+[meson]:http://mesonbuild.com/
+
+[ninja]:https://ninja-build.org/
+
+[autotools]:https://www.gnu.org/software/automake/
+
+[cmake]:https://cmake.org/
