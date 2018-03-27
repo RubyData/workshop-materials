@@ -418,7 +418,7 @@ G_END_DECLS
 
 それでは実装を作ります。ファイル名は`opencv-glib/matrix.cpp`です。
 
-少し長いのですが、ほとんどがよく使うパターンのものなので、何度か作ると慣れるはずです。ドキュメントはコード中のコメントから[GTK-Doc][gtk-doc]というドキュメントツールで生成します。GTK-Docついては後で説明します。ここでは軽く説明するだけにします。
+少し長いのですが、ほとんどがよく使うパターンのものなので、何度か作ると慣れるはずです。ドキュメントはコード中のコメントから[GTK-Doc][gtk-doc]というドキュメントツールで生成します。この文書ではGTK-Docをビルドシステムに組み込む方法については省略します。対応するときは[OpenCV GLibのコード][opencv-glib-repository]を参考にしたり、[Red Data Toolsのチャット][red-data-tools-gitter-ja]で相談してください。
 
 ```cpp
 // C++11のstd::shared_ptrを使うためのヘッダーファイルを読み込む。
@@ -794,6 +794,7 @@ main(void)
 GObject Introspectionに対応させるには`opencv-glib/meson.build`を変更します。パラメーターが多いですが、次のように[`gnome.generate_gir`][gnome-generate-gir]を呼ぶだけです。
 
 ```meson
+# GObject Introspection用のファイルを生成する。
 gnome.generate_gir(# GObject Introspection対応させるライブラリー。
                    # library('opencv-glib', ...)の戻り値。
                    libopencv_glib,
@@ -1598,9 +1599,9 @@ Started
 E
 ===============================================================================
 Error: test: .new(ImageText): GLib::Error: Failed to read image: /tmp/opencv-glib/test/nonexistent.png
-/var/lib/gems/2.5.0/gems/gobject-introspection-3.2.1/lib/gobject-introspection/loader.rb:317:in `invoke'
-/var/lib/gems/2.5.0/gems/gobject-introspection-3.2.1/lib/gobject-introspection/loader.rb:317:in `block (2 levels) in load_constructor_infos'
-/var/lib/gems/2.5.0/gems/gobject-introspection-3.2.1/lib/gobject-introspection/loader.rb:328:in `block in load_constructor_infos'
+/tmp/local/lib/ruby/gems/2.6.0/gems/gobject-introspection-3.2.1/lib/gobject-introspection/loader.rb:317:in `invoke'
+/tmp/local/lib/ruby/gems/2.6.0/gems/gobject-introspection-3.2.1/lib/gobject-introspection/loader.rb:317:in `block (2 levels) in load_constructor_infos'
+/tmp/local/lib/ruby/gems/2.6.0/gems/gobject-introspection-3.2.1/lib/gobject-introspection/loader.rb:328:in `block in load_constructor_infos'
 /tmp/opencv-glib/test/test-image.rb:3:in `new'
 /tmp/opencv-glib/test/test-image.rb:3:in `block in <class:ImageText>'
 ===============================================================================
@@ -1618,8 +1619,468 @@ Finished in 0.00295928 seconds.
 
 ただ、`GLib::Error`だと画像関係のエラーだけ`rescue`するのが面倒です。`CV::ImageError`の例外が発生するようにしましょう。
 
-TODO
+### `enum`のオブジェクト化
 
+`CV::ImageError`の例外が発生するようにするには`CV::ImageError`をオブジェクトにします。言い方を変えると、Cで`enum`で定義されているものをGObjectでのオブジェクトにします。
+
+まだピンとこないかもしれません。これまで、Cで`struct`で定義したものをGObjectでのオブジェクトにしていきました。具体的には`GCVMatrix`と`GCVImage`です。`G_DECLARE_DERIVABLE_TYPE`や`G_DEFINE_TYPE`はそういうことをしていたのです。そうすることでいい感じのバインディングを自動生成してRubyで扱えるようになっていたのです。
+
+同じようにCで`enum`として定義している`GCVImageError`もGObjectでのオブジェクトにします。`GCVMatrix`や`GCVImage`は`G_DECLARE_DERIVABLE_TYPE`や`G_DEFINE_TYPE`を使って手動で実装しましたが、`GCVImageError`は自動で実装できます。ヘッダーファイルを解析して`enum`をオブジェクトにするコードを生成するツールをGLibが提供しているのです。それが[`glib-mkenums`][glib-mkenums]です。
+
+実は、Mesonには`glib-mkenums`を簡単に使うための機能が組み込まれているので簡単にビルドに組み込むことができます。
+
+まず、コードを生成するときに使うテンプレートを用意しします。
+
+ヘッダーファイルを生成するときに使う`opencv-glib/enums.h.template`は次の内容にします。このまま他のライブラリーでも使いまわせるはずです。変更が必要だとしたら`#include`するファイルを変えるくらいです。
+
+```c
+/*** BEGIN file-header ***/
+#pragma once
+
+#include <glib-object.h>
+
+G_BEGIN_DECLS
+/*** END file-header ***/
+
+/*** BEGIN file-production ***/
+
+/* enumerations from "@filename@" */
+/*** END file-production ***/
+
+/*** BEGIN value-header ***/
+GType @enum_name@_get_type(void) G_GNUC_CONST;
+#define @ENUMPREFIX@_TYPE_@ENUMSHORT@ (@enum_name@_get_type())
+/*** END value-header ***/
+
+/*** BEGIN file-tail ***/
+
+G_END_DECLS
+/*** END file-tail ***/
+```
+
+ソースファイルを生成するときに使う`opencv-glib/enums.c.template`は次の内容にします。こちらも最初の`#include`しているところを変更すれば使いまわせるはずです。
+
+```c
+/*** BEGIN file-header ***/
+#include <opencv-glib/opencv-glib.h>
+/*** END file-header ***/
+
+/*** BEGIN file-production ***/
+
+/* enumerations from "@filename@" */
+/*** END file-production ***/
+
+/*** BEGIN value-header ***/
+GType
+@enum_name@_get_type(void)
+{
+  static GType etype = 0;
+  if (G_UNLIKELY(etype == 0)) {
+    static const G@Type@Value values[] = {
+/*** END value-header ***/
+
+/*** BEGIN value-production ***/
+      {@VALUENAME@, "@VALUENAME@", "@valuenick@"},
+/*** END value-production ***/
+
+/*** BEGIN value-tail ***/
+      {0, NULL, NULL}
+    };
+    etype = g_@type@_register_static(g_intern_static_string("@EnumName@"), values);
+  }
+  return etype;
+}
+/*** END value-tail ***/
+
+/*** BEGIN file-tail ***/
+/*** END file-tail ***/
+```
+
+ついに`opencv-glib/opencv-glib.h`が必要になったので次の内容で作成します。`opencv-glib/enums.h`以外はすでに作成したファイルです。`opencv-glib/enums.h`はこれから自動生成しようとしているファイルです。
+
+```c
+#pragma once
+
+// 自動生成予定のヘッダーファイル。
+#include <opencv-glib/enums.h>
+#include <opencv-glib/image.h>
+#include <opencv-glib/image-error.h>
+#include <opencv-glib/matrix.h>
+```
+
+これで自動生成する準備ができたので、あとは`opencv-glib/meson.build`に`glib-mkenums`を使う設定を追加するだけです。
+
+```meson
+# enumをGObjectでのオブジェクトにするための実装を自動生成する。
+enums = gnome.mkenums('enums',
+                      # enumの検出対象となるヘッダーファイル。
+                      sources: headers,
+                      # クラス名のプレフィクス。
+                      # gnome.generate_girで指定するものと同じ。
+                      identifier_prefix: 'GCV',
+                      # 関数名などのプレフィックス。
+                      # gnome.generate_girで指定するものと同じ。
+                      symbol_prefix: 'gcv',
+                      # Cのソースを生成するために使うテンプレート。
+                      c_template: 'enums.c.template',
+                      # ヘッダーファイルを生成するために使うテンプレート。
+                      h_template: 'enums.h.template',
+                      # ヘッダーファイルをインストールする。
+                      install_header: true,
+                      # ヘッダーファイルのインストール先のディレクトリー。
+                      # #{prefix}/include/opencv-glib/enums.hに
+                      # インストールしたいのでmeson.project_name()を
+                      # 使っている。
+                      # meson.project_name()はトップレベルのmeson.buildの
+                      # project()で指定したプロジェクトID。
+                      # 今回のケースでは'opencv-glib'になる。
+                      install_dir: join_paths(get_option('includedir'),
+                                              meson.project_name()))
+
+# ...
+
+# libopencv-glib.soをビルドする設定。
+libopencv_glib = library('opencv-glib',
+                         # ライブラリーのソース。
+                         # 自動生成したファイルも対象にする。
+                         sources: sources + enums,
+                         # ...
+                         )
+
+# ...
+
+# GObject Introspection用のファイルを生成する。
+gnome.generate_gir(libopencv_glib,
+                   # ソースファイルとヘッダーファイル。
+                   # 自動生成したファイルも対象にする。
+                   sources: sources + headers + enums,
+                   # ...
+                   )
+```
+
+これで`enum`もGObjectでのオブジェクトになります。これにより発生する例外が`GLib::Error`ではなく`CV::ImageError`になります。テストを実行してみましょう。
+
+```console
+% ninja -C ../opencv-glib.build test
+...
+Loaded suite test
+Started
+E
+===============================================================================
+Error: test: .new(ImageText): CV::ImageError::Read: Failed to read image: /tmp/opencv-glib/test/nonexistent.png
+/tmp/local/lib/ruby/gems/2.6.0/gems/gobject-introspection-3.2.1/lib/gobject-introspection/loader.rb:317:in `invoke'
+/tmp/local/lib/ruby/gems/2.6.0/gems/gobject-introspection-3.2.1/lib/gobject-introspection/loader.rb:317:in `block (2 levels) in load_constructor_infos'
+/tmp/local/lib/ruby/gems/2.6.0/gems/gobject-introspection-3.2.1/lib/gobject-introspection/loader.rb:328:in `block in load_constructor_infos'
+/tmp/opencv-glib/test/test-image.rb:3:in `new'
+/tmp/opencv-glib/test/test-image.rb:3:in `block in <class:ImageText>'
+===============================================================================
+.
+Finished in 0.004964249 seconds.
+-------------------------------------------------------------------------------
+2 tests, 1 assertions, 0 failures, 1 errors, 0 pendings, 0 omissions, 0 notifications
+50% passed
+-------------------------------------------------------------------------------
+402.88 tests/s, 201.44 assertions/s
+...
+```
+
+発生する例外が`CV::ImageError::Read`に変わりましたね！
+
+それではテストを追加しましょう。正常に画像を読み込めるケースと読み込めないケースです。`test/test-image.rb`は次のようになります。
+
+```ruby
+class ImageText < Test::Unit::TestCase
+  sub_test_case(".new") do
+    test("valid") do
+      image = CV::Image.new(File.join(__dir__, "test.png"))
+      assert do
+        not image.empty? # 画像ファイルを読み込んだら空じゃない
+      end
+    end
+
+    test("nonexistent") do
+      assert_raise(CV::ImageError::Read) do
+        CV::Image.new(File.join(__dir__, "nonexistent.png"))
+      end
+    end
+  end
+end
+```
+
+テストを実行します。
+
+```console
+% ninja -C ../opencv-glib.build test
+...
+[0/1] Running all tests.
+1/1 unit test                               OK       0.33 s
+
+OK:         1
+FAIL:       0
+SKIP:       0
+TIMEOUT:    0
+...
+```
+
+パスしました。
+
+まだ説明していないGObject・GObject Introspectionの機能や仕組みはいろいろありますが、多くの実装はここまで説明した内容で対応できるはずです。より詳しいことを知らなければいけなくなったときは[OpenCV GLibのコード][opencv-glib-repository]を参考にしたり、[Red Data Toolsのチャット][red-data-tools-gitter-ja]で相談してください。
+
+### pkg-config対応
+
+ここからは実装のための作業の説明ではなく、実際にユーザーに使ってもらうための作業の説明をします。
+
+最初はpkg-configへの対応です。ライブラリーがpkg-configに対応していると、ユーザーはとても便利になります。たとえば、ライブラリーの存在チェックをしたり、ビルドフラグを取得したり、といったことが簡単に統一された方法をできるようになります。`opencv-glib/meson.build`内でもOpenCVがpkg-configに対応していたおかげで`dependency('opencv')`と書くだけで済みました。少し後で、GObject Introspectionに対応したライブラリー用のgemの作り方の説明をしますが、そのときにもpkg-configは便利です。
+
+ライブラリーをpkg-configに対応させる方法は簡単です。`.pc`ファイルをインストールするだけです。
+
+たとえば、今回のケースでは次の内容の`/tmp/local/lib/opencv-glib.pc`をインストールできればよいです。
+
+```pc
+prefix=/tmp/local
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: OpenCV GLib
+Description: C API for OpenCV based on GLib
+Version: 1.0.0
+Requires: gobject-2.0 opencv
+Libs: -L${libdir} -lopencv-glib
+Cflags: -I${includedir}
+```
+
+Mesonにはpkg-config対応を支援する[`pkgconfig`モジュール][meson-pkgconfig]があります。それを使うと、`opencv-glib/meson.build`に以下を追加するだけでpkg-configに対応できます。
+
+```meson
+# Mesonが提供するpkg-config用の便利機能を使う。
+pkg = import('pkgconfig')
+# .pcファイルを生成し、インストールする。
+pkg.generate(# #{プロジェクトID}.pcというファイル名にする。
+             # meson.project_name()はトップレベルのmeson.buildの
+             # project()で指定したプロジェクトID。
+             # 今回のケースでは'opencv-glib'になるので、
+             # ファイル名はopencv-glib.pcになる。
+             filebase: meson.project_name(),
+             # パッケージ名。
+             name: 'OpenCV GLib',
+             # パッケージの説明。
+             description: 'C API for OpenCV based on GLib',
+             # パッケージのバージョン。
+             # meson.project_version()はトップレベルのmeson.buildの
+             # project()で指定したバージョン。
+             # 今回のケースでは'1.0.0'になる。
+             version: meson.project_version(),
+             # 依存しているpkg-configのパッケージのリスト。
+             requires: ['gobject-2.0', 'opencv'],
+             # このパッケージをユーザーが使うときにリンクするライブラリー。
+             libraries: [libopencv_glib])
+```
+
+`ninja install`すると`/tmp/local/lib/opencv-glib.pc`が生成されます。
+
+```console
+% ninja -C ../opencv-glib.build install
+% cat /tmp/local/lib/pkgconfig/opencv-glib.pc
+prefix=/tmp/local
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: OpenCV GLib
+Description: C API for OpenCV based on GLib
+Version: 1.0.0
+Requires: gobject-2.0 opencv
+Libs: -L${libdir} -lopencv-glib
+Cflags: -I${includedir}
+```
+
+### リリース方法
+
+最後にライブラリーのリリース方法について説明します。
+
+GNU Autotoolsではリポジトリー内のソースツリーとリリース用のソースツリー（`tar.gz`ファイル）は別物でした。リリース用のソースツリーにはリポジトリー内のソースツリーから自動生成されたファイルも含まれています。これは、ユーザー（リリース用のソースツリーを使う人たち）が準備しなければいけないツールを減らすためです。このアプローチのおかげで、開発者はGNU Autotoolsをインストールしなければいけないが、ユーザーはGNU Autotoolsがなくてもシェルと`make`があればビルドできる状態を実現していました。
+
+一方、Mesonではリポジトリー内のソースツリーとリリース用のソースツリーは同じです。そのため、リリース時はリポジトリー内のソースツリーをアーカイブする（`tar.gz`を作成する）だけでよいです。GitかMercurialを使っている場合は`ninja dist`を実行すればリリース用のファイルを生成できます。なお、`ninja dist`では`tar.xz`を生成するだけでなく、生成した`tar.xz`を使ってユニットテストを実行したりインストールテストをしたり、`tar.xz`のSHA256チェックサムを生成したりもしてくれます。
+
+```console
+% ninja -C ../opencv-glib.build dist
+```
+
+生成されたファイルは`../oepncv-glib.build/meson-dist/`以下にあります。
+
+```console
+% ls ../opencv-glib.build/meson-dist
+opencv-glib-1.0.0.tar.xz
+opencv-glib-1.0.0.tar.xz.sha256sum
+```
+
+あとはこれを適切な場所にアップロードするだけです。
+
+## GObject Introspection対応ライブラリー用のgemの開発方法
+
+GObject Introspectionに対応したライブラリーの場合、実行時にバインディングを自動生成できることはすでに確認済みです。そのため、専用のgemを開発しなくても使えなくはありません。しかし、以下の理由から用意することをオススメします。
+
+  * ユーザーが見つけやすい
+
+    * gemになっていないとRubyから使えることに気付かないユーザーの方が多いです。
+
+  * 細々した使い勝手をよりRubyらしくできる
+
+ここではOpenCV GLibを使ったgemである[Red OpenCV][red-opencv]を例にGObject Introspection対応ライブラリー用のgemの開発方法を説明します。
+
+まず、`red-opencv.gemspec`を作成します。ポイントは`extensions`に`dependency-check/Rakefile`を指定しているところと、gobject-introspection gemに依存させているところです。
+
+```ruby
+$LOAD_PATH.unshift(File.join(__dir__, "lib"))
+# すぐ後で作成する。
+require "cv/version"
+
+Gem::Specification.new do |spec|
+  spec.name = "red-opencv"
+  spec.version = CV::VERSION
+  spec.homepage = "https://github.com/red-data-tools/red-opencv"
+  spec.authors = ["Kouhei Sutou"]
+  spec.email = ["kou@clear-code.com"]
+
+  spec.summary = "Red OpenCV is a Ruby bindings of OpenCV."
+  spec.description = "You can use computer vision features in Ruby."
+  spec.license = "BSD-3-Clause"
+  spec.files = ["Rakefile", "Gemfile", "#{spec.name}.gemspec"]
+  spec.files += Dir.glob("lib/**/*.rb")
+
+  # これでOpenCV GLibがインストールされているかをチェックする。
+  spec.extensions = ["dependency-check/Rakefile"]
+
+  # gobject-introspection gemに依存させること。
+  spec.add_runtime_dependency("gobject-introspection")
+
+  spec.add_development_dependency("bundler")
+  spec.add_development_dependency("rake")
+  spec.add_development_dependency("test-unit")
+end
+```
+
+次の内容の`lib/cv/version.rb`を作成します。単にバージョンを定義しているだけです。
+
+```ruby
+module CV
+  VERSION = "1.0.0"
+end
+```
+
+次の内容の`dependency-check/Rakefile`を作成します。`gem install red-opencv`実行時にこのファイルで定義した`default`タスクが実行されます。`default`が実行されると`opencv-glib`というpkg-configのパッケージがないか探します。なければ自動でdebやRPMをインストールしようとします。この文書ではdebやRPMの作成方法は説明していませんが、それらを用意しておくと、`gem install`しただけで自動で必要なライブラリーもインストールされるのでユーザーは非常に簡単にインストールできます。
+
+```ruby
+require "pkg-config"
+require "native-package-installer"
+
+task :default => "dependency:check"
+
+namespace :dependency do
+  desc "Check dependency"
+  task :check do
+    unless PKGConfig.check_version?("opencv-glib")
+      unless NativePackageInstaller.install(:debian => "libopencv-glib-dev",
+                                            :redhat => "opencv-glib-devel")
+        exit(false)
+      end
+    end
+  end
+end
+```
+
+Red OpenCVではユーザーは次のようにライブラリーを使います。
+
+```ruby
+require "cv"
+
+image = CV::Image.new("test.png")
+```
+
+そのため、次の内容の`lib/cv.rb`を用意します。
+
+```ruby
+require "gobject-introspection"
+
+require "cv/version"
+
+module CV
+  class Loader < GObjectIntrospection::Loader
+  end
+
+  Loader.load("CV", self)
+end
+```
+
+OpenCV GLibでは`GI.load("CV")`だけだった処理が`CV::Loader`を作って`CV::Loader.load`を呼ぶようになっています。実は`GI.load`はこれらの処理をやってくれる便利APIだったのです。今回説明する範囲ではやりませんが、`GObjectIntrospection::Loader`がバインディングを自動生成するオブジェクトなのですが、これの動きをカスタマイズすることでよりRubyらしくできます。そのため、`CV::Loader`と継承して、このgem用にカスタマイズできるようにしておくことをオススメします。
+
+今回は`CV::Image.new`の引数に`String`だけでなく`Pathname`も渡せるようにしましょう。`Pathname`はRubyの標準ライブラリーであり、画像のファイル名を`Pathname`も指定できた方がよりRubyらしいAPIになるからです。
+
+`lib/cv.rb`を以下のように変更します。本当は`lib/cv/image.rb`を作成してそれを`lib/cv.rb`から読み込む方が望ましいのですが、ファイルをわけない方が読者が混乱しにくいだろうという配慮から`lib/cv.rb`を変更しています。
+
+```ruby
+require "gobject-introspection"
+
+require "cv/version"
+
+module CV
+  class Loader < GObjectIntrospection::Loader
+  end
+
+  Loader.load("CV", self)
+
+  # これを追加。
+  # Loader.loadの後ではImageは定義済み。
+  class Image
+    # 自動生成されたinitializeを対比
+    alias_method :initialize_raw, :initialize
+    def initialize(filename)
+      # Rubyにはパスっぽいオブジェクトはto_pathを定義しておくという習慣がある。
+      # PathnameやFileがto_pathを持っている。
+      if filename.respond_to?(:to_path)
+        filename = filename.to_path
+      end
+      initialize_raw(filename)
+    end
+  end
+end
+```
+
+こうすることで次のコードも動くようになります。
+
+```ruby
+require "pathname"
+require "cv"
+
+image = CV::Image.new(Pathname("test.png"))
+```
+
+このように、Rubyに特化した使い勝手の部分はGObject Introspection対応ライブラリー側ではなくgem側で実現しましょう。ただし、一般的なオブジェクト指向なAPIの部分をgem側でがんばってはいけません。そこはGObject Introspection側でがんばるべきです。APIの設計はRubyでの知識がきっと役に立つはずです。
+
+## まとめ
+
+この文書では読者が以下の1つ以上の状態になることを目指しました。
+
+  * GObject Introspectionを使ってバインディングを実装できる
+
+  * 既存のGObject Introspectionを使ったバインディングを改良・修正できる
+
+そのために以下のことについて説明しました。
+
+  * Rubyのバインディングの代表的な開発方法の概略とメリット・デメリット
+
+  * GObject Introspection対応ライブラリーの開発方法の概略
+
+  * GObject Introspection対応ライブラリーを使ったgemの開発方法の概略
+
+一方、以下のことについては説明を省略しました。これらの情報が必要になったら[Red Data Toolsのチャット][red-data-tools-gitter-ja]で相談してください。
+
+  * GObject Introspection対応ライブラリーの開発方法のより立ち入った情報
+
+  * GTK-Doc対応
+
+  * deb/RPM/Homebrew/MSYS2用パッケージの作成方法
+
+  * GObject Introspection対応ライブラリーを使ったgemの開発方法のより立ち入った情報
 
 [gobject-introspection]:https://wiki.gnome.org/Projects/GObjectIntrospection
 
@@ -1643,6 +2104,8 @@ TODO
 
 [gtk-doc]:https://www.gtk.org/gtk-doc/
 
+[red-data-tools-gitter-ja]:https://gitter.im/red-data-tools/ja
+
 [meson]:http://mesonbuild.com/
 
 [ninja]:https://ninja-build.org/
@@ -1659,4 +2122,10 @@ TODO
 
 [test-image-file]:https://raw.githubusercontent.com/red-data-tools/opencv-glib/master/test/fixture/mail-forward.png
 
-[gerro]:https://developer.gnome.org/glib/stable/glib-Error-Reporting.html
+[gerror]:https://developer.gnome.org/glib/stable/glib-Error-Reporting.html
+
+[glib-mkenums]:https://developer.gnome.org/gobject/stable/glib-mkenums.html
+
+[meson-pkgconfig]:http://mesonbuild.com/Pkgconfig-module.html
+
+[red-opencv]:https://github.com/red-data-tools/red-opencv
