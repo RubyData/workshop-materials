@@ -371,7 +371,7 @@ OpenCVのネームスペースが`cv`なのでOpenCV GLibでは最初にGLibの�
 // #endif
 G_BEGIN_DECLS
 
-// OpenCVのMatrixクラスの型情報を取得するための便利マクロ。
+// OpenCV GLibのMatrixクラスの型情報を取得するための便利マクロ。
 // GObjectを使ったライブラリーは次のようなフォーマットで
 // 型情報を取得するマクロを提供するのが習慣になっている。
 //
@@ -1146,7 +1146,480 @@ Full log written to /tmp/opencv-glib.build/meson-logs/testlog.txt
 
 簡単な機能については実装できるようになったので、次はサブクラスの実装方法を説明します。
 
+OpenCVでは行列も画像もすべて`cv::Mat`で表現し、画像用の関数を使うときは画像用の`cv::Mat`を渡すというAPIになっています。GObject Introspection対応ライブラリーはオブジェクト指向なAPIにすることが大事です。そのため、そのままOpenCVのAPIをマッピングするのではなく、どのようなAPIがよいか検討しましょう。
+
+オブジェクト指向なAPIではオブジェクトが自分に適した操作を持っているべきです。OpenCVのケースでは画像用の`cv::Mat`には画像用の機能がメソッドとして実装されているとオブジェクト指向なAPIになります。
+
+よって、`GCVMatrix`を継承した`GCVImage`を作成し、`GCVImage`に画像用の機能を紐付けることにします。
+
+次の内容のヘッダーファイル`opencv-glib/image.h`を作成します。詳細はコメントで説明します。
+
+```c
+#pragma once
+
+// GCVMatrixのサブクラスを作るのでmatrix.hを読み込む。
+#include <opencv-glib/matrix.h>
+
+G_BEGIN_DECLS
+
+// GCVImageの型情報を取得するための便利マクロ。
+// GCV_TYPE_MATRIXと同じ位置付け。
+#define GCV_TYPE_IMAGE (gcv_image_get_type())
+// 親クラスがGObjectではなくGCVMatrixになっているところがポイント。
+// 他はGCVMatrixのときと同様。
+G_DECLARE_DERIVABLE_TYPE(GCVImage,
+                         gcv_image,
+                         GCV,
+                         IMAGE,
+                         GCVMatrix)
+struct _GCVImageClass
+{
+  // 親クラスがGObjectではなくGCVMatrixなので、
+  // GObjectClassではなくGCVMatrixClassになっている。
+  GCVMatrixClass parent_class;
+};
+
+// 指定した名前の画像ファイルを読み込んでGCVImageを作る。
+GCVImage *gcv_image_new(const gchar *filename);
+
+G_END_DECLS
+```
+
+次の内容のソースファイル`opencv-glib/image.cpp`を作成します。詳細はコメントで説明します。
+
+```console
+#include <memory>
+
+#include <opencv2/imgcodecs.hpp>
+
+#include <opencv-glib/image.h>
+
+G_BEGIN_DECLS
+
+/**
+ * SECTION: image
+ * @title: Image class
+ * @include: opencv-glib/opencv-glib.h
+ *
+ * #GCVImage is a special matrix class for image.
+ *
+ * Since: 1.0.0
+ */
+
+// 親クラスがGObjectではなくGCVMatrixなのでG_TYPE_OBJECTではなく
+// GCV_TYPE_MATRIXを指定している。
+// `cv::Mat`を保存する場所はGCVMatrixが持っているので、GCVImageは
+// プライベート領域は必要ない。そのため、G_DEFINE_TYPE_WITH_PRIVATE
+// ではなくてG_DEFINE_TYPEを使っている。
+G_DEFINE_TYPE(GCVImage, gcv_image, GCV_TYPE_MATRIX)
+
+// オブジェクトが作られたときに呼ばれる。
+// 今回は何もすることがないので空。
+static void
+gcv_image_init(GCVImage *object)
+{
+}
+
+// クラスを初期化するときに呼ばれる。
+// GCVMatrixでやっている処理で十分で、GCVImageですることはないので空。
+static void
+gcv_image_class_init(GCVImageClass *klass)
+{
+}
+
+// gcv_image_newの本体。
+// ここのコメントはドキュメントだけではなく、GObject Introspectionに
+// とっても大事な情報なのでこのフォーマットで書くこと。
+/**
+ * gcv_image_new:
+ * @filename: The filename to be read.
+ *
+ * It reads an image from file. Image format is determined by the
+ * content, not by the extension of the filename.
+ *
+ * Returns: A newly read #GCVImage.
+ *
+ * Since: 1.0.0
+ */
+GCVImage *
+gcv_image_new(const gchar *filename)
+{
+  // OpenCVが提供しているcv::imread()で画像ファイルを読み込む。
+  auto cv_matrix_raw = cv::imread(filename, cv::IMREAD_UNCHANGED);
+  // cv_matrix_rawはcv::Matなのでstd::shared_ptr<cv::Mat>にする。
+  auto cv_matrix = std::make_shared<cv::Mat>(cv_matrix_raw);
+  // cv::mat（OpenCV）からGCVImage（OpenCV GLib）を作成。
+  // g_object_newでGObject *型のオブジェクトを作成。
+  auto image = g_object_new(GCV_TYPE_IMAGE,
+                             "matrix", &cv_matrix,
+                             NULL);
+  // GObject *をGCVImage *にキャスト。
+  // このインライン関数はヘッダーでG_DECLARE_DERIVABLE_TYPEを
+  // 呼んだときに定義されていた。
+  return GCV_IMAGE(image);
+}
+
+G_END_DECLS
+```
+
+ファイルを増やしたので、`opencv-glib/meson.build`に追加します。
+
+```meson
+sources = files(
+  'image.cpp', # 追加
+  'matrix.cpp',
+)
+
+headers = files(
+  'image.h', # 追加
+  'matrix.h',
+)
+```
+
+次の内容のテスト`test/test-image.rb`を作成します。
+
+```ruby
+require "test-unit"
+
+require "gi"
+CV = GI.load("CV")
+
+class ImageText < Test::Unit::TestCase
+  test(".new") do
+    image = CV::Image.new("test.png")
+    assert do
+      not image.empty? # 画像ファイルを読み込んだら空じゃない
+    end
+  end
+end
+```
+
+テストファイルはOpenCV GLibのリポジトリー内にある[テスト画像ファイル][test-image-file]を使いましょう。
+
+```console
+% wget -O test/test.png https://raw.githubusercontent.com/red-data-tools/opencv-glib/master/test/fixture/mail-forward.png
+```
+
+テストファイルが複数になったので、複数のファイルを一度にテストできるように次の内容の`test/run-test.rb`を用意します。
+
+```ruby
+#!/usr/bin/env ruby
+
+require "test-unit"
+
+test_dir = __dir__
+
+require "gi"
+CV = GI.load("CV")
+
+exit(Test::Unit::AutoRunner.run(true, test_dir.to_s))
+```
+
+`test/run-test.rb`には実行権をつけましょう。
+
+```console
+% chmod +x test/run-test.rb
+```
+
+テストファイル中の共通処理を`test/run-test.rb`に持ってきたのでテストファイルはそれぞれ次のようにテストだけになりました。
+
+`test/test-matrix.rb`:
+
+```ruby
+class MatrixText < Test::Unit::TestCase
+  test(".new") do
+    matrix = CV::Matrix.new
+    assert do
+      matrix.empty?
+    end
+  end
+end
+```
+
+`test/test-image.rb`:
+
+```ruby
+class ImageText < Test::Unit::TestCase
+  test(".new") do
+    image = CV::Image.new(File.join(__dir__, "test.png"))
+    assert do
+      not image.empty? # 画像ファイルを読み込んだら空じゃない
+    end
+  end
+end
+```
+
+テスト実行用の便利シェルスクリプト`test/run-test.sh`は`test/run-test.rb`（こっちはRubyスクリプト）を呼ぶようにします。
+
+```shell
+# ...
+# 途中は同じ。最後だけ変える。
+# ...
+# ruby ${test_dir}/test-matrix.rb "$@"から↓に変更
+${test_dir}/run-test.rb "$@"
+```
+
+それではテストを実行します。
+
+```console
+% ninja -C ../opencv-glib.build test
+...
+1/1 unit test                               OK       0.20 s
+
+OK:         1
+FAIL:       0
+SKIP:       0
+TIMEOUT:    0
+...
+```
+
+パスしましたね！うまく画像を読み込めたようです。
+
+`test/test-image.rb`を変更して、試しに存在しないパスを指定してみましょう。
+
+```ruby
+class ImageText < Test::Unit::TestCase
+  test(".new") do
+    # 絶対存在しないパスを指定。
+    image = CV::Image.new(File.join(__dir__, "nonexistent.png"))
+    assert do
+      not image.empty?
+    end
+  end
+end
+```
+
+テストを実行します。
+
+```console
+% ninja -C ../opencv-glib.build test
+...
+1/1 unit test                               FAIL     0.20 s
+
+OK:         0
+FAIL:       1
+SKIP:       0
+TIMEOUT:    0
+
+
+The output from the failed tests:
+
+1/1 unit test                               FAIL     0.20 s
+
+--- command ---
+/tmp/opencv-glib/test/run-test.sh
+--- stdout ---
+ninja: no work to do.
+Loaded suite test
+Started
+F
+===============================================================================
+Failure: test: .new(ImageText):
+        not image.empty? # 画像ファイルを読み込んだら空じゃない
+            |     |
+            |     true
+            #<CV::Image:0x55d7a6a48890 ptr=0x55d7a5e1f160>
+/tmp/opencv-glib/test/test-image.rb:4:in `block in <class:ImageText>'
+     1: class ImageText < Test::Unit::TestCase
+     2:   test(".new") do
+     3:     image = CV::Image.new(File.join(__dir__, "nonexistent.png"))
+  => 4:     assert do
+     5:       not image.empty? # 画像ファイルを読み込んだら空じゃない
+     6:     end
+     7:   end
+===============================================================================
+.
+Finished in 0.005666598 seconds.
+-------------------------------------------------------------------------------
+2 tests, 2 assertions, 1 failures, 0 errors, 0 pendings, 0 omissions, 0 notifications
+50% passed
+-------------------------------------------------------------------------------
+352.95 tests/s, 352.95 assertions/s
+-------
+...
+```
+
+失敗しました。`CV::Image.new`は成功して、その後の`not image.empty?`で失敗しています。ユーザーとしては、存在しないパスを指定したら`CV::Image.new`で例外が発生して欲しいです。
+
+### エラー対応
+
+それでは、`CV::Image.new`に存在しないパスを指定したら例外が発生するようにしましょう。
+
+GLibには[`GError`][gerror]というエラーを扱うための仕組みがあります。これを使うとエラーが発生したらRubyレベルで例外にすることができます。
+
+はじめにエラードメインとそのドメイン用のエラーコードを定義します。エラードメインとはエラーのグループのようなもので、関連したエラーをまとめたIDです。たとえば、ファイル関連のエラードメインを作って、その中にファイルが見つからないときのエラーコード、パーミッションがなかったときのエラーコードといったように使います。
+
+ここでは画像関連のエラーのためのエラードメインを定義します。
+
+次の内容のヘッダーファイル`opencv-glib/image-error.h`を作成します。
+
+```c
+#pragma once
+
+#include <glib-object.h>
+
+G_BEGIN_DECLS
+
+// ここのコメントはなくてもいいけど、ドキュメントが生成できるので
+// 書いておいた方がよい。
+// GCVImageErrorがエラーの名前。
+// エラーコードはGCV_IMAGE_ERROR_XXXのように共通のプレフィックスをつける。
+// 共通のプレフィクスをつけると自動でコード名を生成してくれる。
+// 今回のケースだと「read」、「write」、「unknown」というコード名を生成しれくれる。
+/**
+ * GCVImageError:
+ * @GCV_IMAGE_ERROR_READ: Image read error.
+ * @GCV_IMAGE_ERROR_RITE: Image write error.
+ * @GCV_IMAGE_ERROR_UNKNOWN: Unknown error.
+ *
+ * Image related errors.
+ *
+ * Since: 1.0.0
+ */
+typedef enum {
+  GCV_IMAGE_ERROR_READ,
+  GCV_IMAGE_ERROR_WRITE,
+  GCV_IMAGE_ERROR_UNKNOWN,
+} GCVImageError;
+
+// エラードメインを返すマクロ。
+// 次のフォーマットにする習慣になっている。
+//
+//   #{大文字のモジュール名}_#{大文字のエラー名}という習慣がある。
+#define GCV_IMAGE_ERROR (gcv_image_error_quark())
+
+// エラードメインを返す関数。
+GQuark gcv_image_error_quark(void);
+
+G_END_DECLS
+```
+
+次の内容のソース`opencv-glib/image-error.cpp`を作成します。
+
+```cpp
+#include <opencv-glib/image-error.h>
+
+G_BEGIN_DECLS
+
+/**
+ * SECTION: image-error
+ * @title: GCVImageError
+ * @short_description: Image Error
+ *
+ * #GCVImageError provides image related error codes.
+ */
+
+// エラードメインを定義する便利マクロ。
+//
+// 第一引数は次のフォーマットにする習慣になっている。
+//
+//   #{ハイフンつなぎのエラー名}-quark」
+//
+// エラーIDになるので重複しないように注意。
+//
+// 第二引数はアンダースコアつなぎのエラー名を指定する。
+// 以下の関数を定義してくれる。
+//
+//   #{アンダースコアつなぎのエラー名}_quark
+G_DEFINE_QUARK(gcv-image-error-quark, gcv_image_error)
+
+G_END_DECLS
+```
+
+ファイルを追加したので`opencv-glib/meson.build`を更新します。
+
+```meson
+sources = files(
+  'image.cpp',
+  'image-error.cpp', # 追加
+  'matrix.cpp',
+)
+
+headers = files(
+  'image.h',
+  'image-error.h', # 追加
+  'matrix.h',
+)
+```
+
+これで画像関係のエラーを扱えるようになりました。`gcv_image_new()`を変更して画像の読み込みに失敗したらエラーにしましょう。
+
+まず、`opencv-glib/image.h`を変更して`GError **`を受け取るようにします。エラーが起きたらここにエラー情報を設定します。
+
+```c
+// 指定した名前の画像ファイルを読み込んでGCVImageを作る。
+// エラーが発生したらerrorに格納する。
+GCVImage *gcv_image_new(const gchar *filename, GError **error);
+```
+
+それでは`opencv-glib/image.cpp`を変更して
+
+```cpp
+/**
+ * gcv_image_new:
+ * @filename: The filename to be read.
+ * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * ↑を追加。「@error: ...」は定形でこれでよい。
+ *
+ * Returns: (nullable): A newly read #GCVImage.
+ * ↑に「 (nullable):」を追加。エラーのときはNULLを返す。
+ *
+ * Since: 1.0.0
+ */
+GCVImage *
+gcv_image_new(const gchar *filename, GError **error)
+{
+  // OpenCVが提供しているcv::imread()で画像ファイルを読み込む。
+  auto cv_matrix_raw = cv::imread(filename, cv::IMREAD_UNCHANGED);
+  // 読み込みに失敗すると空になっている。
+  if (cv_matrix_raw.empty()) {
+    // エラーを設定。errorがNULLの場合は何もしない便利関数。
+    g_set_error(error,
+                // エラードメイン
+                GCV_IMAGE_ERROR,
+                // エラーコード
+                GCV_IMAGE_ERROR_READ,
+                // エラーメッセージ。printfのフォーマットを使える。
+                "Failed to read image: %s", filename);
+    return NULL; // エラーのときはNULLを返す。
+  }
+  // あとは同じ。
+  // ...
+}
+```
+
+これで画像の読み込みに失敗したときはエラーになるようにできたのでテストしましょう。
+
+```console
+% ninja -C ../opencv-glib.build test
+...
+Loaded suite test
+Started
+E
+===============================================================================
+Error: test: .new(ImageText): GLib::Error: Failed to read image: /tmp/opencv-glib/test/nonexistent.png
+/var/lib/gems/2.5.0/gems/gobject-introspection-3.2.1/lib/gobject-introspection/loader.rb:317:in `invoke'
+/var/lib/gems/2.5.0/gems/gobject-introspection-3.2.1/lib/gobject-introspection/loader.rb:317:in `block (2 levels) in load_constructor_infos'
+/var/lib/gems/2.5.0/gems/gobject-introspection-3.2.1/lib/gobject-introspection/loader.rb:328:in `block in load_constructor_infos'
+/tmp/opencv-glib/test/test-image.rb:3:in `new'
+/tmp/opencv-glib/test/test-image.rb:3:in `block in <class:ImageText>'
+===============================================================================
+.
+Finished in 0.00295928 seconds.
+-------------------------------------------------------------------------------
+2 tests, 1 assertions, 0 failures, 1 errors, 0 pendings, 0 omissions, 0 notifications
+50% passed
+-------------------------------------------------------------------------------
+675.84 tests/s, 337.92 assertions/s
+...
+```
+
+画像が存在しないときは`GLib::Error`の例外が発生するようになりましたね！
+
+ただ、`GLib::Error`だと画像関係のエラーだけ`rescue`するのが面倒です。`CV::ImageError`の例外が発生するようにしましょう。
+
 TODO
+
 
 [gobject-introspection]:https://wiki.gnome.org/Projects/GObjectIntrospection
 
@@ -1183,3 +1656,7 @@ TODO
 [gobject-introspection-gem]:https://rubygems.org/gems/gobject-introspection
 
 [test-unit-gem]:https://rubygems.org/gems/test-unit
+
+[test-image-file]:https://raw.githubusercontent.com/red-data-tools/opencv-glib/master/test/fixture/mail-forward.png
+
+[gerro]:https://developer.gnome.org/glib/stable/glib-Error-Reporting.html
