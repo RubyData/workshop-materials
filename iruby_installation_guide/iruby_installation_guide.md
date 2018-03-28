@@ -332,7 +332,7 @@ rbenv install 2.5.0
 
 ```console
 rbenv global 2.5.0
-↓```
+```
 
 以上で Ruby 2.5.0 のインストールは完了です。
 
