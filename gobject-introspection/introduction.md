@@ -714,7 +714,6 @@ libopencv_glib = library(# ライブラリー名。
 
 ```console
 % rm -rf ../opencv-glib.build   # 念のためビルドディレクトリーを削除
-% mkdir -p ../opencv-glib.build # ビルドディレクトリーを作成
 % meson ../opencv-glib.build \
    --prefix=/tmp/local          # MesonでNinja用のファイルを生成
 % ninja -C ../opencv-glib.build         # Ninjaでビルド
@@ -876,6 +875,55 @@ GObject Introspection対応ライブラリーのバインディングを実行�
 ```
 
 バインディングを実行時に自動生成してRubyで`GCVMatrix`オブジェクトを作れました。
+
+なお、Ruby以外でもgobject-introspection gem相当のライブラリーがある言語では同様のことができます。たとえば、PythonやLuaでも同様のことができます。
+
+以下はPythonの例です。
+
+```python
+import gi
+gi.require_version("CV", "1.0")
+from gi.repository import CV
+
+matrix = CV.Matrix.new()
+print(matrix)
+```
+
+[PyGObject][pygobject]を[インストール][pygobject-install]したら、次のように環境変数を指定すると実行できます。
+
+```console
+% GI_TYPELIB_PATH=/tmp/local/lib/girepository-1.0 \
+   LD_LIBRARY_PATH=/tmp/local/lib \
+   python3 opencv-glib-test.py
+<CV.Matrix object at 0x7f4e2cb55a20 (GCVMatrix at 0x1706cd0)>
+```
+
+以下はLuaの例です。
+
+```lua
+local lgi = require 'lgi'
+local CV = lgi.CV
+
+local matrix = CV.Matrix.new()
+print(matrix)
+```
+
+Luaでは[LGI][lgi]を使います。
+
+```console
+% sudo luarocks install lgi
+```
+
+次のように環境変数を指定すると実行できます。
+
+```console
+% GI_TYPELIB_PATH=/tmp/local/lib/girepository-1.0 \
+   LD_LIBRARY_PATH=/tmp/local/lib \
+   lua opencv-glib-test.lua
+lgi.obj 0x5628d4ea54a0:CV.Matrix(GCVMatrix)
+```
+
+このようにGObject Introspectionに対応するとRuby以外の言語からも簡単に使えるようになります。このことのメリットは「Ruby以外の言語の人たちと共同でライブラリーをメンテナンスできる」ことです。Rubyコミュニティーに閉じないのでより開発を推進しやすくなります。
 
 ### Rubyでのテスト作成
 
@@ -1287,7 +1335,7 @@ CV = GI.load("CV")
 
 class ImageText < Test::Unit::TestCase
   test(".new") do
-    image = CV::Image.new("test.png")
+    image = CV::Image.new(File.join(__dir__, "test.png"))
     assert do
       not image.empty? # 画像ファイルを読み込んだら空じゃない
     end
@@ -1553,9 +1601,12 @@ headers = files(
 GCVImage *gcv_image_new(const gchar *filename, GError **error);
 ```
 
-それでは`opencv-glib/image.cpp`を変更して
+それでは`opencv-glib/image.cpp`を変更して読み込みに失敗したらエラーにします。
 
 ```cpp
+// ...
+#include <opencv-glib/image-error.h>
+// ...
 /**
  * gcv_image_new:
  * @filename: The filename to be read.
@@ -2117,6 +2168,12 @@ image = CV::Image.new(Pathname("test.png"))
 [gnome-generate-gir]:http://mesonbuild.com/Gnome-module.html#gnomegenerate_gir
 
 [gobject-introspection-gem]:https://rubygems.org/gems/gobject-introspection
+
+[pygobject]:https://pygobject.readthedocs.io/
+
+[pygobject-install]:https://pygobject.readthedocs.io/en/latest/getting_started.html
+
+[lgi]:https://github.com/pavouk/lgi
 
 [test-unit-gem]:https://rubygems.org/gems/test-unit
 
