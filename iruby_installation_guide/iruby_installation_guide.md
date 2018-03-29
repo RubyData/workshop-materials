@@ -78,8 +78,7 @@ pip3 install jupyter
 まず、Ruby をインストールするために必要なツールとライブラリを準備します。次のコマンドで必要なツールとライブラリのパッケージをインストールしましょう。
 
 ```console
-sudo yum groupinstall "Development Tools"
-sudo yum install gmp-devel libffi-devel libyaml-devel openssl-devel bison gdbm-devel readline-devel
+sudo apt install libgmp-devel libffi-dev libyaml-dev libssl-dev bison libgdbm-dev libreadline6-dev
 ```
 
 Ruby そのもののインストール方法については、後述の「rbenv と ruby-build を利用した Ruby 環境の構築」セクションを参照してください。
