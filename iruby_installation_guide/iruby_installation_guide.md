@@ -93,7 +93,7 @@ IRuby を動作させるために必要となる ZeroMQ ライブラリを準備
 
 #### Ubuntu 16.04 LTS の場合
 
-Ubuntu 16.04 LTS では、公式の ZMQ パッケージがバージョン 4.1.4 なので cztop が利用できません。しかし、s次のコマンドで opensuse が配布しているパッケージをインストールすることで cztop 用の環境を構築できます。
+Ubuntu 16.04 LTS では、公式の ZMQ パッケージがバージョン 4.1.4 なので cztop が利用できません。しかし、次のコマンドで opensuse が配布しているパッケージをインストールすることで cztop 用の環境を構築できます。
 
 ```console
 echo 'deb http://download.opensuse.org/repositories/home:/zeromq:/git-draft/xUbuntu_16.04/ /' > sudo sh -c 'cat > /etc/apt/sources.list.d/zeromq.list'
