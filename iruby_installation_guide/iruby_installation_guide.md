@@ -33,7 +33,7 @@ Jupyter を利用する場合、多くの人はウェブブラウザから Jupyt
 
 以下では、主要 OS を対象に、OS ごとに Jupyter と IRuby を利用するための環境構築手順を解説します。
 
-Python と Ruby はそれぞれ本稿執筆時点での最新版である Python 3.6.4 と Ruby 2.5.0 を利用します。
+Python と Ruby はそれぞれ本稿執筆時点での最新版である Python 3.6.4 と Ruby 2.5.1 を利用します。
 
 ## Ubuntu Linux の場合
 
@@ -258,9 +258,9 @@ pip install jupyter
 
 ### Ruby のインストール
 
-次の URL から Ruby 2.5.0 のインストーラをダウンロードし、実行してインストールしてください。
+次の URL から Ruby 2.5.1 のインストーラをダウンロードし、実行してインストールしてください。
 
-- <https://github.com/oneclick/rubyinstaller2/releases/download/rubyinstaller-2.5.0-2/rubyinstaller-2.5.0-2-x64.exe>
+<https://github.com/oneclick/rubyinstaller2/releases/download/rubyinstaller-2.5.1-1/rubyinstaller-2.5.1-1-x64.exe>
 
 TODO: PATH の設定について調査して説明する。
 
@@ -324,16 +324,16 @@ eval "$(rbenv init -)"
 
 そして、シェルを起動しなおすと rbenv が有効になります。
 
-### Ruby 2.5.0 のインストール
+### Ruby 2.5.1 のインストール
 
 Ruby のインストールは `rbenv install` コマンドにインストールしたい Ruby のバージョンを指定するだけです。
 
 #### macOS 以外の OS の場合
 
-次のコマンドを実行し、Ruby 2.5.0 をインストールしましょう。
+次のコマンドを実行し、Ruby 2.5.1 をインストールしましょう。
 
 ```console
-rbenv install 2.5.0
+rbenv install 2.5.1
 ```
 
 #### macOS の場合
@@ -342,18 +342,18 @@ macOS では、Ruby をビルドする際に利用するライブラリ群の場
 
 ```console
 export CONFIGURE_OPTS="--with-opt-dir=$(brew --prefix) --with-openssl-dir=$(brew --prefix openssl) --with-readline-dir=$(brew --prefix readline)"
-rbenv install 2.5.0
+rbenv install 2.5.1
 ```
 
 ### デフォルトの Ruby バージョンを選択
 
-インストールが完了したら、次のコマンドを実行して、デフォルトの Ruby を Ruby 2.5.0 に設定してください。
+インストールが完了したら、次のコマンドを実行して、デフォルトの Ruby を Ruby 2.5.1 に設定してください。
 
 ```console
-rbenv global 2.5.0
+rbenv global 2.5.1
 ```
 
-以上で Ruby 2.5.0 のインストールは完了です。
+以上で Ruby 2.5.1 のインストールは完了です。
 
 ## まとめ
 
