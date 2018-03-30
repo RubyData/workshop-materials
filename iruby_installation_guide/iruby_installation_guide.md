@@ -164,7 +164,27 @@ gem install iruby pry cztop
 
 ## macOS の場合
 
-macOS については Homebrew を利用していることを前提に環境構築の手順を説明します。
+macOS については Homebrew を利用することを前提に環境構築の手順を説明します。
+
+### Command Line Tools または Xcode のインストール
+
+Homebrew をインストールするために、Command Line Tools または Xcode をインストールする必要があります。
+
+Command Line Tools の場合は次のコマンドを実行して表示される指示に従ってください。
+
+```console
+xcode-select --install
+```
+
+Xcode の場合は、App Store でインストールするか <https://developer.apple.com/downloads> から Xcode をダウンロードしてインストールしてください。
+
+### Homebrew のインストール
+
+Homebrew は、<https://brew.sh/> に記載されている次のコマンドを実行することでインストールできます。
+
+```console
+/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+```
 
 ### Python のインストール
 
