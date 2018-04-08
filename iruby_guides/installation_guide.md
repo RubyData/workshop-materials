@@ -5,7 +5,6 @@
 本ガイドでは、IRuby を利用するための環境の作り方を、次の主要オペレーティングシステム (以下、OS と略す) 別に解説します。
 
 - Ubuntu Linux
-- Amazon Linux
 - macOS
 - Windows
 
@@ -87,8 +86,8 @@ Ruby そのもののインストール方法については、後述の「rbenv 
 
 IRuby を動作させるために必要となる ZeroMQ ライブラリを準備します。IRuby では cztop ライブラリを利用します。cztop を使用するには、ライブラリのバージョンについて次の条件を満たす必要があります。
 
-- ZMQ >= 4.2.0
-- CZMQ >= 4.0.0
+- ZMQ ≥ 4.2.0
+- CZMQ ≥ 4.0.0
 
 #### Ubuntu 16.04 LTS の場合
 
@@ -108,51 +107,6 @@ Ubuntu 18.04 LTS では公式パッケージを利用します。
 ```console
 sudo apt-get install libczmq-dev libzmq3-dev
 ```
-
-### IRuby のインストール
-
-IRuby、pry、cztop を `gem install` コマンドでインストールします。
-
-```console
-gem install iruby pry cztop
-```
-
-## Amazon Linux の場合
-
-ここでは Amazon Linux 2 LTS Candidate AMI 2017.12.0.20180115 x86_64 HVM GP2 を使用していることが前提になっています。
-
-### Python のインストール
-
-Amazon Linux 2 では、Python 3 は Amazon Linux Extras に含まれています。
-
-```console
-sudo amazon-linux-extras install python3
-```
-
-これで python3 コマンドが有効になり、Python 3.6.2 が使用できるようになりました。
-
-### Jupyter のインストール
-
-```console
-sudo pip3 install jupyter
-```
-
-### Ruby のインストール
-
-Amazon Linux 2 では、Amazon Linux Extras に Ruby 2.4 が含まれていますが、Ruby 2.5 はまだ公式パッケージとしては提供されていません。そこで、rbenv と ruby-build を利用して Ruby の実行環境を導入します。
-
-まず、Ruby をインストールするために必要なツールとライブラリを準備します。次のコマンドで必要なツールとライブラリのパッケージをインストールしましょう。
-
-```console
-sudo yum groupinstall "Development Tools"
-sudo yum install gmp-devel libffi-devel libyaml-devel openssl-devel gdbm-devel readline-devel
-```
-
-Ruby そのもののインストール方法については、後述の「rbenv と ruby-build を利用した Ruby 環境の構築」セクションを参照してください。
-
-### ZeroMQ ライブラリのインストー↑ル
-
-TODO:
 
 ### IRuby のインストール
 
