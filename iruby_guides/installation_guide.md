@@ -198,9 +198,11 @@ gem install iruby pry cztop
 
 次の URL から Python 3.6.4 のインストーラをダウンロードし、実行してインストールしてください。
 
-- <https://www.python.org/ftp/python/3.6.4/python-3.6.4-amd64.exe>
+<https://www.python.org/ftp/python/3.6.4/python-3.6.4-amd64.exe>
 
-TODO: PATH の設定について調査して説明する。
+インストールされた Python に適切にパスを通すため、インストーラの以下の画面で、赤枠で囲んだチェックボックスをチェックしてください。
+
+![図: Python インストーラの画面](img/install_python_win.png)
 
 ### Jupyter のインストール
 
@@ -216,7 +218,13 @@ pip install jupyter
 
 <https://github.com/oneclick/rubyinstaller2/releases/download/rubyinstaller-2.5.1-1/rubyinstaller-2.5.1-1-x64.exe>
 
-TODO: PATH の設定について調査して説明する。
+インストールされる Ruby に適切にパスを通すため、インストーラの以下の画面で、赤枠で囲んだチェックボックスをチェックしてください。
+
+![図: Ruby インストーラの画面](img/install_ruby_win.png)
+
+また、インストーラのインストール完了画面に表示されるチェックボックス (下図の赤枠) をチェックした状態で完了すると、拡張ライブラリの開発で必要な MSYS2 の環境のインストールが開始されます。開発環境が必要な場合はインストールしておくと良いでしょう。MSYS2 の環境は後でもインストールできるので、チェックを外して完了しても問題ありません。
+
+![図: Ruby インストーラのインストール完了画面](img/install_ruby_win_finish.png)
 
 ### ZeroMQ ライブラリのインストール
 
@@ -309,6 +317,53 @@ rbenv global 2.5.1
 
 以上で Ruby 2.5.1 のインストールは完了です。
 
+## Windows での Ruby 拡張ライブラリ開発環境の構築
+
+### ridk コマンドによる開発環境のインストール
+
+Windows において、Ruby 拡張ライブラリの開発環境を Ruby インストール時にインストールしなかった場合、次のコマンドをコマンドプロンプトで実行することでインストール可能です。
+
+```console
+ridk install
+```
+
+このコマンドを実行すると、次のメッセージが表示され、番号の入力待ちになります。
+
+```console
+> ridk install
+C:\Users\mrkn>ridk install
+ _____       _           _____           _        _ _         ___
+|  __ \     | |         |_   _|         | |      | | |       |__ \
+| |__) |   _| |__  _   _  | |  _ __  ___| |_ __ _| | | ___ _ __ ) |
+|  _  / | | | '_ \| | | | | | | '_ \/ __| __/ _` | | |/ _ \ '__/ /
+| | \ \ |_| | |_) | |_| |_| |_| | | \__ \ || (_| | | |  __/ | / /_
+|_|  \_\__,_|_.__/ \__, |_____|_| |_|___/\__\__,_|_|_|\___|_||____|
+                    __/ |           _
+                   |___/          _|_ _  __   | | o __  _| _     _
+                                   | (_) |    |^| | | |(_|(_)\^/_>
+
+   1 - MSYS2 base installation
+   2 - MSYS2 system update (optional)
+   3 - MSYS2 and MINGW development toolchain
+
+↑Which components shall be installed? If unsure press ENTER [1,2,3]
+```
+
+ここで `3` を入力すると、MSYS2 と MINGW 開発環境がインストールされます。
+
+ここで
+
+```
+MSYS2 could not be found. Please run 'ridk install'
+or download and install MSYS2 manually from https://msys2.github.io/
+```
+
+このようなメッセージが表示されてしまう場合は、先に MSYS2 を手動でインストールする必要があります。次のセクションに従い MSYS2 をインストールし、それから再度このセクションの最初に戻って環境構築をしてください。
+
+### MSYS2 のインストール
+
+MSYS2 のトップページ <https://msys2.github.io> に掲載されている `msys2-x86_64-YYYYMMDD.exe` というファイル名 (`YYYYMMDD` は年月日です) のインストーラをダウンロードし実行してください。
+
 ## まとめ
 
-本ガイドでは、IRuby を利用するための環境の作り方について述べました。
+本ガイドでは、IRuby を利用するための環境の作り方について述べました。また、Windows における開発環境の構築方法についても述べました。
