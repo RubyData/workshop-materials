@@ -24,8 +24,8 @@
 アプリケーションを clone して動かしてみましょう。下記の一連のコマンドを実行することで、アプリケーションのコードを clone し、必要なライブラリ群をインストールできます。
 
 ```console
-git clone git@github.com:RubyData/xxx.git
-cd xxx
+git clone git@github.com:RubyData/wine_data_viewer.git
+cd wine_data_viewer
 bundle install
 pip3 install -r requirements.txt
 ```
