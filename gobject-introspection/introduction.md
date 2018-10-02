@@ -354,7 +354,7 @@ OpenCVのネームスペースが`cv`なのでOpenCV GLibでは最初にGLibの�
 #include <glib-object.h>
 
 // GLibが提供しているマクロ。
-// 最後のG_BEGIN_DECLSとペアで使う。
+// 最後のG_END_DECLSとペアで使う。
 // ここで囲んだ部分はC++のシンボルではなくCのシンボルになる。
 // OpenCV GLibではCのAPIを提供するので必ずこのマクロを使う。
 //
