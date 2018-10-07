@@ -41,7 +41,7 @@ typedef struct {
 
 // クラスの実体を定義。
 // プライベート領域を使わないときはG_DEFINE_TYPEでよい。
-// 今回のように使うときはG_DEFINE_TYPE_WITH_PRIVATEをを使う。
+// 今回のように使うときはG_DEFINE_TYPE_WITH_PRIVATEを使う。
 // 引数はそれぞれ次の意味。ヘッダーファイルの
 // G_DECLARE_DERIVABLE_TYPEと合わせること。
 //
