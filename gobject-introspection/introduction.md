@@ -475,10 +475,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GCVMatrix, gcv_matrix, G_TYPE_OBJECT)
 
 // オブジェクトからプライベート領域を取得する便利マクロ。
 // #{大文字のプレフィックス}_GET_PRIVATEという名前で定義するのが習慣。
-#define GCV_MATRIX_GET_PRIVATE(obj)                     \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                   \
-                               GCV_TYPE_MATRIX,         \
-                               GCVMatrixPrivate))
+#define GCV_MATRIX_GET_PRIVATE(obj)         \
+  static_cast<GCVMatrixPrivate *>(          \
+     gcv_matrix_get_instance_private(       \
+       GCV_MATRIX(obj)))
 
 // GObjectの「プロパティー」機能のための定数。
 // 後で使う。
@@ -621,7 +621,8 @@ project('opencv-glib',    # プロジェクトのID
         version: '1.0.0', # プロジェクトのバージョン
         # ライセンスは3条項BSDライセンス。OpenCVと合わせた。
         # プロジェクトに合わせて変更する。
-        license: 'BSD-3-Clause')
+        license: 'BSD-3-Clause',
+        default_options : ['cpp_std=c++11'])
 
 # APIのバージョン。プロジェクトのメジャーバージョンと合わせるとよい。
 # GObject Introspectionで公開するAPIで使う。
@@ -677,6 +678,7 @@ install_headers(headers, subdir: meson.project_name())
 # pkg-configで見つけられるライブラリーだと楽。
 dependencies = [
   # OpenCVはopencvという名前でpkg-configで見つけられる。
+  # macOSの場合は'opencv4'と記述する(homebrew利用時)
   dependency('opencv'),
   # GObjectは必ず依存関係に含める。
   # GObject Introspectionに対応するには必須だから。
@@ -866,6 +868,8 @@ GObject Introspection対応ライブラリーのバインディングを実行�
 また、`.so`ファイルを見つけるために`LD_LIBRARY_PATH`環境変数も指定しなければいけないことに注意してください。
 
 次のように`GI_TYPELIB_PATH`環境変数と`LD_LIBRARY_PATH`環境変数を指定して実行します。
+
+rbenvなどのツールを利用している場合は、rubyの実態を指定する必要があります。例　`$(rbenv which ruby) opencv-glib-test.rb` 
 
 ```console
 % GI_TYPELIB_PATH=/tmp/local/lib/girepository-1.0 \
