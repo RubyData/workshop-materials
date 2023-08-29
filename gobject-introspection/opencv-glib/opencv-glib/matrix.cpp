@@ -52,10 +52,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GCVMatrix, gcv_matrix, G_TYPE_OBJECT)
 
 // オブジェクトからプライベート領域を取得する便利マクロ。
 // #{大文字のプレフィックス}_GET_PRIVATEという名前で定義するのが習慣。
-#define GCV_MATRIX_GET_PRIVATE(obj)                     \
-  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                   \
-                               GCV_TYPE_MATRIX,         \
-                               GCVMatrixPrivate))
+#define GCV_MATRIX_GET_PRIVATE(obj)         \
+  static_cast<GCVMatrixPrivate *>(          \
+     gcv_matrix_get_instance_private(       \
+       GCV_MATRIX(obj)))
 
 // GObjectの「プロパティー」機能のための定数。
 // 後で使う。

@@ -3,7 +3,8 @@ project('opencv-glib',    # プロジェクトのID
         version: '1.0.0', # プロジェクトのバージョン
         # ライセンスは3条項BSDライセンス。OpenCVと合わせた。
         # プロジェクトに合わせて変更する。
-        license: 'BSD-3-Clause')
+        license: 'BSD-3-Clause',
+        default_options : ['cpp_std=c++11'])
 
 # APIのバージョン。プロジェクトのメジャーバージョンと合わせるとよい。
 # GObject Introspectionで公開するAPIで使う。

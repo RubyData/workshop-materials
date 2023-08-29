@@ -53,6 +53,7 @@ enums = gnome.mkenums('enums',
 # pkg-configで見つけられるライブラリーだと楽。
 dependencies = [
   # OpenCVはopencvという名前でpkg-configで見つけられる。
+  # macOSの場合は'opencv4'と記述する(homebrew利用時)
   dependency('opencv'),
   # GObjectは必ず依存関係に含める。
   # GObject Introspectionに対応するには必須だから。
